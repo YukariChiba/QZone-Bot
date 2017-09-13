@@ -54,7 +54,7 @@ def get_earthquake():
     return quakelist
 
 
-def send_shuoshuo(msg):
+def send_shuoshuo(msg, permit=False, permit_list_str=''):
 
     # gtk = rc.gtk
     cookies, gtk = tokens.get_token()
@@ -66,8 +66,9 @@ def send_shuoshuo(msg):
 
     querystring = {"qzonetoken": rc.qztoken,
                    "g_tk": gtk}
-
     payload = {
+        'is_winphone': 2,
+        'source_name': 'iPhone X',
         'code_version': '1',
         'con': msg,
         'feedversion': '1',
@@ -86,7 +87,11 @@ def send_shuoshuo(msg):
         'ver': '1',
         'who': '1'
     }
-
+    if permit:
+        payload['ugc_right'] = '16'
+        payload['allow_uins'] = permit_list_str
+    else:
+        payload['ugc_right'] = '1'
     headers = {
         'origin': "https://user.qzone.qq.com",
         'user-agent': rc.user_agent,
@@ -112,7 +117,15 @@ def dbgmsg(debugwords):
     if rc.debug_mode:
         return '[调试信息] ' + debugwords + '\n'
     else:
-        return ''
+        if rc.admin_debug_mode:
+            admin_dbg_write('[调试信息] ' + debugwords + '\n')
+            return ''
+        else:
+            return ''
+
+
+def at_someone(qq, name):
+    return '@{uin: ' + qq + ', nick: ' + name + '} '
 
 
 def get_weather():
@@ -205,6 +218,35 @@ def print_title():
     return otmsg
 
 
+def print_end():
+    return '\n' + emoji('10003') + ' 来自 iPhone X'
+
+
+def emoji(emid):
+    return '[em]e' + emid + '[/em]'
+
+
+def admin_dbg_write(instr):
+    f = open(rc.admin_debug_tmp, 'a')
+    f.write(instr)
+    f.close()
+
+
+def print_admin_debug():
+    time.sleep(10)
+    f = open(rc.admin_debug_tmp, 'r')
+    dbg_text = f.readlines()
+    f.close()
+    dbg_text_out = ''
+    for lines in dbg_text:
+        dbg_text_out += lines
+        dbg_text_out += '\n'
+    send_shuoshuo(rc.admin_debug_hello + dbg_text_out, permit_list_str=rc.admin_qq_list, permit=True)
+    # print(rc.admin_debug_hello + dbg_text_out)
+    f = open(rc.admin_debug_tmp, 'w')
+    f.truncate()
+
+
 def print_debug():
     otmsg = ''
     if rc.debug_mode:
@@ -217,6 +259,17 @@ def print_debug():
         otmsg += '\n'
         otmsg += dbgmsg('调试信息模块加载正常')
         otmsg += '\n'
+    if rc.admin_debug_mode:
+        dbg = (dbgmsg('模块测试模式'))
+        dbg += ('版本号: ' + rc.version + '\n')
+        dbg += ('作者:' + rc.author + '\n')
+        dbg += ('QQ:' + rc.qq + '\n')
+        dbg += ('当前时间' + str(time.time()) + ' ticks\n')
+        dbg += ('定时发送:' + str(rc.time_send_mode))
+        dbg += '\n'
+        dbg += (dbgmsg('调试信息模块加载正常'))
+        dbg += '\n'
+        admin_dbg_write(dbg)
     return otmsg
 
 
@@ -248,8 +301,11 @@ def exec_daily():
     outmsg += print_debug()
     outmsg += print_weather()
     outmsg += print_oneword()
+    outmsg += print_end()
     send_shuoshuo(outmsg)
     # print(outmsg)
+    if rc.admin_debug_mode:
+        print_admin_debug()
 
 
 def exec_emer_quake():
@@ -260,10 +316,9 @@ def exec_emer_quake():
 
 
 init()
-time.sleep(3600 * 3)
-exec_daily_timer = Timer(3600 * 24, exec_daily(), tuple())
+time.sleep(3600 * 18)
+exec_daily_timer = Timer(3600 * 10, exec_daily(), tuple())
 exec_daily_timer.start()
 thread.start_new_thread(exec_emer_quake, tuple())
 while 1:
     pass
-
